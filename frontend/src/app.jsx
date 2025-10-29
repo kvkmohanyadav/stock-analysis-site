@@ -1,4 +1,4 @@
-﻿const { useState, useEffect } = React;
+﻿  const { useState, useEffect, useRef } = React;
 
 function App() {
   const [niftyData, setNiftyData] = useState(null);
@@ -7,6 +7,10 @@ function App() {
   const [swotData, setSwotData] = useState(null);
   const [stockDetails, setStockDetails] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [historicalData, setHistoricalData] = useState(null);
+  const [selectedPeriod, setSelectedPeriod] = useState('1y');
+  const chartCanvasRef = useRef(null);
+  const chartInstanceRef = useRef(null);
 
   useEffect(() => {
     const fetchMarketData = async () => {
@@ -24,21 +28,197 @@ function App() {
     return () => clearInterval(interval);
   }, []);
 
+  useEffect(() => {
+    // Render chart when historical data changes
+    if (!historicalData || !chartCanvasRef.current || historicalData.length === 0) {
+      return;
+    }
+
+    // Small delay to ensure canvas is rendered
+    const timeoutId = setTimeout(() => {
+      if (!chartCanvasRef.current) return;
+
+      // Destroy existing chart if it exists
+      if (chartInstanceRef.current) {
+        chartInstanceRef.current.destroy();
+        chartInstanceRef.current = null;
+      }
+
+      const ctx = chartCanvasRef.current.getContext('2d');
+      if (!ctx) return;
+
+      // Create labels showing only month and year for x-axis
+      const labels = historicalData.map(item => {
+        const date = new Date(item.date);
+        return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+      });
+      
+      // Keep full date for each point for tooltip display
+      const fullDates = historicalData.map(item => item.date);
+      const prices = historicalData.map(item => item.close);
+
+      if (typeof Chart === 'undefined') {
+        console.error('Chart.js is not loaded');
+        return;
+      }
+
+      const chart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'Stock Price',
+            data: prices,
+            borderColor: 'rgb(59, 130, 246)',
+            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+            borderWidth: 2,
+            fill: true,
+            tension: 0.4,
+            pointRadius: 0,
+            pointHoverRadius: 5,
+            // Store full dates as custom data for tooltip
+            _fullDates: fullDates
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              display: false
+            },
+            tooltip: {
+              mode: 'index',
+              intersect: false,
+              callbacks: {
+                title: function(context) {
+                  const dataIndex = context[0].dataIndex;
+                  const fullDate = chart.data.datasets[0]._fullDates[dataIndex];
+                  const date = new Date(fullDate);
+                  const formattedDate = date.toLocaleDateString('en-US', { 
+                    weekday: 'short',
+                    year: 'numeric', 
+                    month: 'short', 
+                    day: 'numeric' 
+                  });
+                  return formattedDate;
+                },
+                label: function(context) {
+                  return 'Price: ₹' + context.parsed.y.toFixed(2);
+                }
+              }
+            }
+          },
+          scales: {
+            x: {
+              display: true,
+              title: {
+                display: true,
+                text: 'Time',
+                font: {
+                  size: 14,
+                  weight: 'bold'
+                }
+              },
+              grid: {
+                display: true,
+                color: 'rgba(0, 0, 0, 0.05)'
+              }
+            },
+            y: {
+              display: true,
+              title: {
+                display: true,
+                text: 'Price (₹)',
+                font: {
+                  size: 14,
+                  weight: 'bold'
+                }
+              },
+              grid: {
+                display: true,
+                color: 'rgba(0, 0, 0, 0.05)'
+              },
+              ticks: {
+                callback: function(value) {
+                  return '₹' + value.toFixed(0);
+                }
+              }
+            }
+          },
+          interaction: {
+            mode: 'index',
+            intersect: false
+          }
+        }
+      });
+
+      chartInstanceRef.current = chart;
+    }, 100);
+
+    // Cleanup on unmount
+    return () => {
+      clearTimeout(timeoutId);
+      if (chartInstanceRef.current) {
+        chartInstanceRef.current.destroy();
+        chartInstanceRef.current = null;
+      }
+    };
+  }, [historicalData, selectedPeriod]);
+
+  const fetchHistoricalData = async (symbol, period) => {
+    try {
+      const response = await axios.get(`http://localhost:5000/api/historical/${symbol}?period=${period}`);
+      if (response.data.success) {
+        setHistoricalData(response.data.data);
+        return response.data.data;
+      }
+    } catch (error) {
+      console.error('Error fetching historical data:', error);
+    }
+    return null;
+  };
+
   const handleSearch = async () => {
     if (!searchQuery.trim()) return;
     setLoading(true);
     try {
-      // Fetch both SWOT and stock details
-      const [swotResponse, detailsResponse] = await Promise.all([
-        axios.get(`http://localhost:5000/api/swot/${searchQuery.toUpperCase()}`),
-        axios.get(`http://localhost:5000/api/stock-details/${searchQuery.toUpperCase()}`)
+      const symbol = searchQuery.toUpperCase();
+      // Fetch SWOT, stock details, and historical data
+      const [swotResponse, detailsResponse, historicalResponse] = await Promise.all([
+        axios.get(`http://localhost:5000/api/swot/${symbol}`),
+        axios.get(`http://localhost:5000/api/stock-details/${symbol}`),
+        axios.get(`http://localhost:5000/api/historical/${symbol}?period=${selectedPeriod}`).catch(err => {
+          console.error('Historical data fetch failed:', err);
+          return { data: { success: false, error: err.message } };
+        })
       ]);
       
       if (swotResponse.data.success) setSwotData(swotResponse.data.data.swot);
       if (detailsResponse.data.success) setStockDetails(detailsResponse.data.data);
+      if (historicalResponse.data.success) {
+        setHistoricalData(historicalResponse.data.data);
+        console.log('Historical data loaded:', historicalResponse.data.data.length, 'data points');
+      } else {
+        console.error('Historical data failed:', historicalResponse.data.error);
+      }
     } catch (error) {
       console.error('Error:', error);
       alert('Error generating analysis');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePeriodChange = async (period) => {
+    if (!searchQuery.trim()) return;
+    setSelectedPeriod(period);
+    setLoading(true);
+    try {
+      const data = await fetchHistoricalData(searchQuery.toUpperCase(), period);
+      setHistoricalData(data);
+    } catch (error) {
+      console.error('Error changing period:', error);
     } finally {
       setLoading(false);
     }
@@ -183,6 +363,59 @@ function App() {
                     ))}
                   </tbody>
                 </table>
+              </div>
+            </div>
+          )}
+
+          {historicalData && (
+            <div className="mb-6 bg-white rounded-lg p-6 border-2 border-blue-200 shadow-lg">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-2xl font-bold text-gray-800">Price Movement Chart</h3>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => handlePeriodChange('1y')}
+                    className={`px-4 py-2 rounded-lg font-semibold transition-all ${
+                      selectedPeriod === '1y' 
+                        ? 'bg-blue-600 text-white shadow-md' 
+                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                    }`}
+                  >
+                    1 Year
+                  </button>
+                  <button
+                    onClick={() => handlePeriodChange('3y')}
+                    className={`px-4 py-2 rounded-lg font-semibold transition-all ${
+                      selectedPeriod === '3y' 
+                        ? 'bg-blue-600 text-white shadow-md' 
+                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                    }`}
+                  >
+                    3 Years
+                  </button>
+                  <button
+                    onClick={() => handlePeriodChange('5y')}
+                    className={`px-4 py-2 rounded-lg font-semibold transition-all ${
+                      selectedPeriod === '5y' 
+                        ? 'bg-blue-600 text-white shadow-md' 
+                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                    }`}
+                  >
+                    5 Years
+                  </button>
+                  <button
+                    onClick={() => handlePeriodChange('all')}
+                    className={`px-4 py-2 rounded-lg font-semibold transition-all ${
+                      selectedPeriod === 'all' 
+                        ? 'bg-blue-600 text-white shadow-md' 
+                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                    }`}
+                  >
+                    All Time
+                  </button>
+                </div>
+              </div>
+              <div className="h-96 bg-gray-50 rounded-lg p-4 border border-gray-200">
+                <canvas ref={chartCanvasRef}></canvas>
               </div>
             </div>
           )}

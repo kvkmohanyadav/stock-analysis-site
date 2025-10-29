@@ -1,4 +1,4 @@
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 from flask_cors import CORS
 from datetime import datetime
 from modules.database import init_db, get_db_connection
@@ -119,6 +119,29 @@ def generate_swot(symbol):
         swot_data = swot_analyzer.analyze(symbol.upper())
         return jsonify({"success": True, "data": {"symbol": symbol.upper(), "swot": swot_data,
                    "timestamp": datetime.now().isoformat()}})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route("/api/historical/<symbol>", methods=["GET"])
+def get_historical_data(symbol):
+    try:
+        period = request.args.get('period', '1y')  # Default to 1 year
+        
+        # Map period values
+        period_map = {
+            '1y': '1y',
+            '3y': '3y',
+            '5y': '5y',
+            'all': 'max'
+        }
+        
+        period = period_map.get(period, '1y')
+        data = data_fetcher.fetch_historical_data(symbol.upper(), period)
+        
+        if data:
+            return jsonify({"success": True, "data": data, "period": period})
+        else:
+            return jsonify({"success": False, "error": "Historical data not found"}), 404
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
