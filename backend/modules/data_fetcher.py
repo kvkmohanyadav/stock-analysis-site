@@ -71,3 +71,38 @@ class DataFetcher:
             "change_percent": round(random.uniform(-1, 1), 2),
             "timestamp": datetime.now().isoformat()
         }
+    
+    def fetch_historical_data(self, symbol, period="1y"):
+        """
+        Fetch historical price data for a stock
+        period options: "1y", "3y", "5y", "max" (all time)
+        """
+        try:
+            stock = yf.Ticker(f"{symbol}.NS")  # .NS for NSE stocks
+            data = stock.history(period=period)
+            
+            if data.empty:
+                # Try without .NS suffix
+                stock = yf.Ticker(symbol)
+                data = stock.history(period=period)
+            
+            if data.empty:
+                return None
+            
+            # Convert to list of dictionaries with date and close price
+            historical_data = []
+            for date, row in data.iterrows():
+                historical_data.append({
+                    "date": date.strftime("%Y-%m-%d"),
+                    "open": round(float(row['Open']), 2),
+                    "high": round(float(row['High']), 2),
+                    "low": round(float(row['Low']), 2),
+                    "close": round(float(row['Close']), 2),
+                    "volume": int(row['Volume'])
+                })
+            
+            return historical_data
+            
+        except Exception as e:
+            print(f"Error fetching historical data for {symbol}: {e}")
+            return None

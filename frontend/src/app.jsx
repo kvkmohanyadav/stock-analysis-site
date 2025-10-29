@@ -9,6 +9,7 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [historicalData, setHistoricalData] = useState(null);
   const [selectedPeriod, setSelectedPeriod] = useState('1y');
+  const [companyInfo, setCompanyInfo] = useState(null);
   const chartCanvasRef = useRef(null);
   const chartInstanceRef = useRef(null);
 
@@ -184,12 +185,16 @@ function App() {
     setLoading(true);
     try {
       const symbol = searchQuery.toUpperCase();
-      // Fetch SWOT, stock details, and historical data
-      const [swotResponse, detailsResponse, historicalResponse] = await Promise.all([
+      // Fetch SWOT, stock details, historical data, and company info
+      const [swotResponse, detailsResponse, historicalResponse, companyInfoResponse] = await Promise.all([
         axios.get(`http://localhost:5000/api/swot/${symbol}`),
         axios.get(`http://localhost:5000/api/stock-details/${symbol}`),
         axios.get(`http://localhost:5000/api/historical/${symbol}?period=${selectedPeriod}`).catch(err => {
           console.error('Historical data fetch failed:', err);
+          return { data: { success: false, error: err.message } };
+        }),
+        axios.get(`http://localhost:5000/api/company-info/${symbol}`).catch(err => {
+          console.error('Company info fetch failed:', err);
           return { data: { success: false, error: err.message } };
         })
       ]);
@@ -201,6 +206,9 @@ function App() {
         console.log('Historical data loaded:', historicalResponse.data.data.length, 'data points');
       } else {
         console.error('Historical data failed:', historicalResponse.data.error);
+      }
+      if (companyInfoResponse.data.success) {
+        setCompanyInfo(companyInfoResponse.data.data);
       }
     } catch (error) {
       console.error('Error:', error);
@@ -457,6 +465,74 @@ function App() {
                 </ul>
               </div>
               </div>
+            </div>
+          )}
+
+          {companyInfo && (
+            <div className="mt-6 bg-white rounded-lg shadow-lg p-6 border-2 border-indigo-200">
+              <h3 className="text-2xl font-bold text-gray-800 mb-6">Company Reports & News</h3>
+              
+              {/* Annual Reports Section */}
+              {companyInfo.reports && companyInfo.reports.length > 0 && (
+                <div className="mb-6">
+                  <h4 className="text-xl font-semibold text-indigo-800 mb-4 flex items-center">
+                    <svg className="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                    </svg>
+                    Annual Reports & Documents
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {companyInfo.reports.map((report, idx) => (
+                      <a
+                        key={idx}
+                        href={report.link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center justify-between p-4 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg border border-indigo-200 hover:shadow-md transition-shadow"
+                      >
+                        <div className="flex-1">
+                          <p className="font-semibold text-gray-800 text-sm">{report.title}</p>
+                          <p className="text-xs text-gray-600 mt-1">{report.type} • {report.year}</p>
+                        </div>
+                        <svg className="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                        </svg>
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* News Section */}
+              {companyInfo.news && companyInfo.news.length > 0 && (
+                <div>
+                  <h4 className="text-xl font-semibold text-indigo-800 mb-4 flex items-center">
+                    <svg className="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" />
+                    </svg>
+                    Latest News & Updates
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {companyInfo.news.map((newsItem, idx) => (
+                      <a
+                        key={idx}
+                        href={newsItem.link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center justify-between p-4 bg-gradient-to-r from-blue-50 to-cyan-50 rounded-lg border border-blue-200 hover:shadow-md transition-shadow"
+                      >
+                        <div className="flex-1">
+                          <p className="font-semibold text-gray-800 text-sm">{newsItem.title}</p>
+                          <p className="text-xs text-gray-600 mt-1">Source: {newsItem.source}</p>
+                        </div>
+                        <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                        </svg>
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>

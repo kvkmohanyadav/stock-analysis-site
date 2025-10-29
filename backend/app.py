@@ -4,12 +4,14 @@ from datetime import datetime
 from modules.database import init_db, get_db_connection
 from modules.data_fetcher import DataFetcher
 from modules.swot_analyzer import SWOTAnalyzer
+from modules.company_info import CompanyInfo
 
 app = Flask(__name__)
 CORS(app)
 init_db()
 data_fetcher = DataFetcher()
 swot_analyzer = SWOTAnalyzer()
+company_info = CompanyInfo()
 
 @app.route("/")
 def index():
@@ -142,6 +144,14 @@ def get_historical_data(symbol):
             return jsonify({"success": True, "data": data, "period": period})
         else:
             return jsonify({"success": False, "error": "Historical data not found"}), 404
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route("/api/company-info/<symbol>", methods=["GET"])
+def get_company_info(symbol):
+    try:
+        info = company_info.get_annual_reports_and_news(symbol.upper())
+        return jsonify({"success": True, "data": info})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
