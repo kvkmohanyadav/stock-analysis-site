@@ -10,6 +10,37 @@
     <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+      @keyframes scroll {
+        0% {
+          transform: translateY(0);
+        }
+        100% {
+          transform: translateY(-20px);
+        }
+      }
+      .animate-scroll {
+        animation: scroll 3s ease-in-out infinite;
+      }
+      .animate-scroll:hover {
+        animation-play-state: paused;
+      }
+      
+      @keyframes scroll-tweets {
+        0% {
+          transform: translateY(0);
+        }
+        100% {
+          transform: translateY(-50%);
+        }
+      }
+      .animate-scroll-tweets {
+        animation: scroll-tweets 30s linear infinite;
+      }
+      .animate-scroll-tweets:hover {
+        animation-play-state: paused;
+      }
+    </style>
   </head>
   <body>
     <div id="root"></div>

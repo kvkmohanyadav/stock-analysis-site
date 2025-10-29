@@ -470,42 +470,11 @@ function App() {
 
           {companyInfo && (
             <div className="mt-6 bg-white rounded-lg shadow-lg p-6 border-2 border-indigo-200">
-              <h3 className="text-2xl font-bold text-gray-800 mb-6">Company Reports & News</h3>
+              <h3 className="text-2xl font-bold text-gray-800 mb-6">Company News & Updates</h3>
               
-              {/* Annual Reports Section */}
-              {companyInfo.reports && companyInfo.reports.length > 0 && (
-                <div className="mb-6">
-                  <h4 className="text-xl font-semibold text-indigo-800 mb-4 flex items-center">
-                    <svg className="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                    </svg>
-                    Annual Reports & Documents
-                  </h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                    {companyInfo.reports.map((report, idx) => (
-                      <a
-                        key={idx}
-                        href={report.link}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center justify-between p-4 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg border border-indigo-200 hover:shadow-md transition-shadow"
-                      >
-                        <div className="flex-1">
-                          <p className="font-semibold text-gray-800 text-sm">{report.title}</p>
-                          <p className="text-xs text-gray-600 mt-1">{report.type} • {report.year}</p>
-                        </div>
-                        <svg className="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                        </svg>
-                      </a>
-                    ))}
-                  </div>
-                </div>
-              )}
-
               {/* News Section */}
               {companyInfo.news && companyInfo.news.length > 0 && (
-                <div>
+                <div className="mb-6">
                   <h4 className="text-xl font-semibold text-indigo-800 mb-4 flex items-center">
                     <svg className="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" />
@@ -530,6 +499,60 @@ function App() {
                         </svg>
                       </a>
                     ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Tweets Section - Show even if tweets array is empty */}
+              {companyInfo.twitter && companyInfo.twitter.length > 0 && (
+                <div>
+                  <h4 className="text-xl font-semibold text-indigo-800 mb-4 flex items-center">
+                    <svg className="w-6 h-6 mr-2" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M23 3a10.9 10.9 0 01-3.14 1.53 4.48 4.48 0 00-7.86 3v1A10.66 10.66 0 013 4s-4 9 5 13a11.64 11.64 0 01-7 2c9 5 20 0 20-11.5a4.5 4.5 0 00-.08-.83A7.72 7.72 0 0023 3z"/>
+                    </svg>
+                    Tweets
+                  </h4>
+                  <div className="space-y-4">
+                    {companyInfo.twitter.map((feed, feedIdx) => {
+                      const hasTweets = feed.tweets && Array.isArray(feed.tweets) && feed.tweets.length > 0;
+                      return (
+                        <div key={feedIdx} className="bg-gradient-to-r from-sky-50 to-blue-50 rounded-lg p-4 border border-sky-200">
+                          <div className="flex items-center mb-3">
+                            <svg className="w-5 h-5 text-sky-500 mr-2" fill="currentColor" viewBox="0 0 24 24">
+                              <path d="M23 3a10.9 10.9 0 01-3.14 1.53 4.48 4.48 0 00-7.86 3v1A10.66 10.66 0 013 4s-4 9 5 13a11.64 11.64 0 01-7 2c9 5 20 0 20-11.5a4.5 4.5 0 00-.08-.83A7.72 7.72 0 0023 3z"/>
+                            </svg>
+                            <span className="font-bold text-sky-700">{feed.handle}</span>
+                            <span className="text-gray-600 text-sm ml-2">• {feed.name}</span>
+                          </div>
+                          {hasTweets ? (
+                            <div className="overflow-hidden h-64 relative">
+                              <div className="animate-scroll-tweets absolute w-full">
+                                {feed.tweets.map((tweet, tweetIdx) => (
+                                  <div key={tweetIdx} className="mb-4 p-3 bg-white rounded-lg border border-sky-100 shadow-sm">
+                                    <p className="text-gray-800 text-sm leading-relaxed">{tweet.text}</p>
+                                  </div>
+                                ))}
+                                {/* Duplicate for seamless loop */}
+                                {feed.tweets.map((tweet, tweetIdx) => (
+                                  <div key={`dup-${tweetIdx}`} className="mb-4 p-3 bg-white rounded-lg border border-sky-100 shadow-sm">
+                                    <p className="text-gray-800 text-sm leading-relaxed">{tweet.text}</p>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="p-6 text-center text-gray-500 text-sm bg-white rounded-lg border border-sky-100">
+                              <svg className="w-12 h-12 mx-auto mb-3 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M23 3a10.9 10.9 0 01-3.14 1.53 4.48 4.48 0 00-7.86 3v1A10.66 10.66 0 013 4s-4 9 5 13a11.64 11.64 0 01-7 2c9 5 20 0 20-11.5a4.5 4.5 0 00-.08-.83A7.72 7.72 0 0023 3z"/>
+                              </svg>
+                              <p className="font-medium">Tweets unavailable</p>
+                              <p className="text-xs mt-2 text-gray-400">Twitter API integration required for live tweets</p>
+                              <p className="text-xs mt-1 text-gray-400">Please integrate Twitter API v2 for real-time tweet fetching</p>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}
