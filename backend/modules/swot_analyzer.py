@@ -39,7 +39,8 @@ class SWOTAnalyzer:
                     "volume": 0,
                     "avg_volume": 0,
                     "target_price": 0,
-                    "peer_comparison": screener_data.get('peer_comparison')
+                    "peer_comparison": screener_data.get('peer_comparison'),
+                    "quarterly_results": screener_data.get('quarterly_results')
                 }
             
             # Fallback to yfinance if screener fails

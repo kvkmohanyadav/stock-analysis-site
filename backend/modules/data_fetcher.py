@@ -5,30 +5,91 @@ import json
 import os
 import yfinance as yf
 
+# NSE and BSE libraries
+try:
+    from nsepython import nse_get_index_quote
+    from nsetools import Nse
+    NSE_AVAILABLE = True
+except ImportError:
+    NSE_AVAILABLE = False
+    print("Warning: nsepython or nsetools not available. Install with: pip install nsepython nsetools")
+
+try:
+    from bsedata.bse import BSE
+    BSE_AVAILABLE = True
+except ImportError:
+    BSE_AVAILABLE = False
+    print("Warning: bsedata not available. Install with: pip install bsedata")
+
 class DataFetcher:
     def __init__(self):
         self.cache_dir = "cache"
         os.makedirs(self.cache_dir, exist_ok=True)
+        if NSE_AVAILABLE:
+            try:
+                self.nse = Nse()
+            except:
+                self.nse = None
+        else:
+            self.nse = None
+        
+        if BSE_AVAILABLE:
+            try:
+                self.bse = BSE()
+            except:
+                self.bse = None
+        else:
+            self.bse = None
     
     def fetch_nifty50(self):
         try:
-            # Fetch real Nifty50 data from Yahoo Finance
-            nifty = yf.Ticker("^NSEI")
-            info = nifty.history(period="1d", interval="1m")
-            
-            if not info.empty:
-                current = info['Close'].iloc[-1]
-                prev_close = nifty.info.get('previousClose', current)
-                change = current - prev_close
-                change_pct = (change / prev_close) * 100
+            if NSE_AVAILABLE:
+                # Try nsepython first - NIFTY 50
+                try:
+                    quote = nse_get_index_quote("NIFTY 50")
+                    if quote and isinstance(quote, dict):
+                        # nsepython returns dict with keys like 'last', 'percChange', etc.
+                        # Values may have commas, so we need to clean them
+                        last_str = str(quote.get('last', quote.get('lastPrice', '0'))).replace(',', '')
+                        prev_close_str = str(quote.get('previousClose', '0')).replace(',', '')
+                        change_pct_str = str(quote.get('percChange', quote.get('pChange', '0'))).replace(',', '')
+                        
+                        current = float(last_str)
+                        change_pct = float(change_pct_str)
+                        prev_close = float(prev_close_str)
+                        change = current - prev_close if prev_close > 0 else 0
+                        
+                        if current > 0:
+                            return {
+                                "index_name": "NIFTY 50",
+                                "current_value": round(current, 2),
+                                "change": round(change, 2),
+                                "change_percent": round(change_pct, 2),
+                                "timestamp": datetime.now().isoformat()
+                            }
+                except Exception as e:
+                    print(f"nsepython NIFTY50 error: {e}")
                 
-                return {
-                    "index_name": "NIFTY 50",
-                    "current_value": round(current, 2),
-                    "change": round(change, 2),
-                    "change_percent": round(change_pct, 2),
-                    "timestamp": datetime.now().isoformat()
-                }
+                # Try nsetools as fallback
+                if self.nse:
+                    try:
+                        quote = self.nse.get_index_quote('NIFTY 50')
+                        if quote and isinstance(quote, dict):
+                            current = float(quote.get('last', quote.get('lastPrice', quote.get('value', 0))))
+                            change_pct = float(quote.get('percChange', quote.get('pChange', 0)))
+                            prev_close = float(quote.get('previousClose', 0))
+                            change = current - prev_close if prev_close > 0 else float(quote.get('change', 0))
+                            
+                            if current > 0:
+                                return {
+                                    "index_name": "NIFTY 50",
+                                    "current_value": round(current, 2),
+                                    "change": round(change, 2),
+                                    "change_percent": round(change_pct, 2),
+                                    "timestamp": datetime.now().isoformat()
+                                }
+                    except Exception as e:
+                        print(f"nsetools NIFTY50 error: {e}")
         except Exception as e:
             print(f"Error fetching Nifty50: {e}")
         
@@ -43,23 +104,67 @@ class DataFetcher:
     
     def fetch_sensex(self):
         try:
-            # Fetch real Sensex data from Yahoo Finance
-            sensex = yf.Ticker("^BSESN")
-            info = sensex.history(period="1d", interval="1m")
+            # Try bsedata first for SENSEX (BSE index)
+            if BSE_AVAILABLE and self.bse:
+                try:
+                    # Get indices from market_cap/broad category where SENSEX is located
+                    data = self.bse.getIndices('market_cap/broad')
+                    if data and 'indices' in data:
+                        # Find SENSEX in the indices list
+                        sensex_data = None
+                        for idx in data['indices']:
+                            if 'SENSEX' in idx.get('name', '').upper() and 'BSE SENSEX' in idx.get('name', ''):
+                                sensex_data = idx
+                                break
+                        
+                        if sensex_data:
+                            # Extract values - bsedata returns values with commas
+                            current_str = str(sensex_data.get('currentValue', '0')).replace(',', '')
+                            change_str = str(sensex_data.get('change', '0')).replace(',', '')
+                            change_pct_str = str(sensex_data.get('pChange', '0')).replace(',', '')
+                            
+                            current = float(current_str)
+                            change = float(change_str)
+                            change_pct = float(change_pct_str)
+                            
+                            if current > 0:
+                                return {
+                                    "index_name": "SENSEX",
+                                    "current_value": round(current, 2),
+                                    "change": round(change, 2),
+                                    "change_percent": round(change_pct, 2),
+                                    "timestamp": datetime.now().isoformat()
+                                }
+                except Exception as e:
+                    print(f"bsedata SENSEX error: {e}")
             
-            if not info.empty:
-                current = info['Close'].iloc[-1]
-                prev_close = sensex.info.get('previousClose', current)
-                change = current - prev_close
-                change_pct = (change / prev_close) * 100
-                
-                return {
-                    "index_name": "SENSEX",
-                    "current_value": round(current, 2),
-                    "change": round(change, 2),
-                    "change_percent": round(change_pct, 2),
-                    "timestamp": datetime.now().isoformat()
-                }
+            # Fallback: Try nsepython for SENSEX (in case it has BSE data)
+            if NSE_AVAILABLE:
+                sensex_names = ["S&P BSE SENSEX", "SENSEX"]
+                for sensex_name in sensex_names:
+                    try:
+                        quote = nse_get_index_quote(sensex_name)
+                        if quote and isinstance(quote, dict):
+                            # Values may have commas, so we need to clean them
+                            last_str = str(quote.get('last', quote.get('lastPrice', '0'))).replace(',', '')
+                            prev_close_str = str(quote.get('previousClose', '0')).replace(',', '')
+                            change_pct_str = str(quote.get('percChange', quote.get('pChange', '0'))).replace(',', '')
+                            
+                            current = float(last_str)
+                            change_pct = float(change_pct_str)
+                            prev_close = float(prev_close_str)
+                            change = current - prev_close if prev_close > 0 else 0
+                            
+                            if current > 0:
+                                return {
+                                    "index_name": "SENSEX",
+                                    "current_value": round(current, 2),
+                                    "change": round(change, 2),
+                                    "change_percent": round(change_pct, 2),
+                                    "timestamp": datetime.now().isoformat()
+                                }
+                    except:
+                        continue
         except Exception as e:
             print(f"Error fetching Sensex: {e}")
         
